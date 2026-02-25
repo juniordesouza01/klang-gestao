@@ -1,0 +1,9 @@
+{
+  "name": "klang-gestao",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx serve public",
+    "build": "echo 'static site'",
+    "start": "npx serve public"
+  }
+}
