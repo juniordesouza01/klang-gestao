@@ -266,7 +266,7 @@ tbody tr:hover{background:var(--surface);}
 <div class="page" id="page-clientes">
   <div class="phd">
     <div><div class="ptitle">Clientes</div><div class="psub">Cadastro com produtos e desenhos técnicos</div></div>
-    <button class="btn btn-k" onclick="openModal('m-novo-cliente')">+ Novo Cliente</button>
+    <button class="btn btn-k" onclick="novoCliente()">+ Novo Cliente</button>
   </div>
   <div class="pbody">
     <div class="tw"><div id="cli-table-wrap"><div class="loading"><div class="spin"></div>Carregando...</div></div></div>
@@ -406,20 +406,38 @@ tbody tr:hover{background:var(--surface);}
   </div>
 </div>
 
-<!-- MODAL NOVO CLIENTE -->
+<!-- MODAL NOVO/EDITAR CLIENTE -->
 <div class="ov" id="m-novo-cliente">
   <div class="modal">
-    <div class="mhd"><div><h3>Novo Cliente</h3></div><button class="mclose" onclick="cm('m-novo-cliente')">✕</button></div>
+    <div class="mhd"><div><h3 id="nc-title">Novo Cliente</h3></div><button class="mclose" onclick="cm('m-novo-cliente')">✕</button></div>
     <div class="mbody">
+      <input type="hidden" id="nc-id"/>
       <div class="grid2">
-        <div class="fg full"><label class="fl">Nome / Razão Social</label><input class="fi" id="nc-nome" placeholder="Nome do cliente"/></div>
+        <div class="fg full"><label class="fl">Cliente (Razão Social)</label><input class="fi" id="nc-nome" placeholder="Nome da empresa"/></div>
+        <div class="fg full"><label class="fl">Responsável</label><input class="fi" id="nc-responsavel" placeholder="Nome do contato principal"/></div>
+        <div class="fg"><label class="fl">Telefone</label><input class="fi" id="nc-telefone" placeholder="(00) 00000-0000"/></div>
+        <div class="fg"><label class="fl">Email NFe</label><input class="fi" id="nc-email" type="email" placeholder="fiscal@empresa.com"/></div>
         <div class="fg"><label class="fl">CNPJ</label><input class="fi" id="nc-cnpj" placeholder="00.000.000/0001-00"/></div>
-        <div class="fg"><label class="fl">Email</label><input class="fi" id="nc-email" type="email" placeholder="contato@empresa.com"/></div>
         <div class="fg"><label class="fl">Cidade</label><input class="fi" id="nc-cidade" placeholder="São Paulo"/></div>
-        <div class="fg"><label class="fl">Estado</label><input class="fi" id="nc-estado" placeholder="SP"/></div>
+        <div class="fg full"><label class="fl">Estado</label>
+          <select class="fs" id="nc-estado">
+            <option value="">— Selecione —</option>
+            <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+            <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+            <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+            <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+            <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+            <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+            <option>SP</option><option>SE</option><option>TO</option>
+          </select>
+        </div>
       </div>
     </div>
-    <div class="mft"><button class="btn" onclick="cm('m-novo-cliente')">Cancelar</button><button class="btn btn-k" onclick="salvarCliente()">Salvar Cliente</button></div>
+    <div class="mft">
+      <button class="btn" id="nc-btn-excluir" style="color:var(--red);display:none" onclick="excluirCliente()">🗑 Excluir</button>
+      <button class="btn" onclick="cm('m-novo-cliente')">Cancelar</button>
+      <button class="btn btn-k" onclick="salvarCliente()">Salvar Cliente</button>
+    </div>
   </div>
 </div>
 
@@ -892,33 +910,89 @@ async function loadRoteiros(){
 // ─── CLIENTES ───
 async function loadClientes(){
   const {data} = await db.from('clientes').select('*,pedidos(id)').order('nome');
-  if(!data||!data.length){document.getElementById('cli-table-wrap').innerHTML=`<div class="empty">Nenhum cliente cadastrado ainda.</div>`;return;}
-  let html = `<table><thead><tr><th>Nome</th><th>CNPJ</th><th>Cidade/UF</th><th>Email</th><th>Pedidos</th></tr></thead><tbody>`;
+  if(!data||!data.length){document.getElementById('cli-table-wrap').innerHTML=`<div class="empty">Nenhum cliente cadastrado ainda. Clique em + Novo Cliente.</div>`;return;}
+  let html = `<table><thead><tr><th>Cliente</th><th>Responsável</th><th>Telefone</th><th>Email NFe</th><th>Cidade/UF</th><th>Pedidos</th><th></th></tr></thead><tbody>`;
   data.forEach(c=>{
     html += `<tr>
       <td class="fw6">${c.nome}</td>
-      <td class="mono">${c.cnpj||'—'}</td>
-      <td>${c.cidade||''}${c.cidade&&c.estado?' / ':''}${c.estado||''||'—'}</td>
+      <td>${c.responsavel||'—'}</td>
+      <td class="mono">${c.telefone||'—'}</td>
       <td>${c.email||'—'}</td>
+      <td>${c.cidade||''}${c.cidade&&c.estado?' · ':''}${c.estado||'—'}</td>
       <td>${c.pedidos?.length||0}</td>
+      <td><button class="btn btn-xs" onclick="editarCliente('${c.id}','${(c.nome||'').replace(/'/g,"\\'")}','${(c.responsavel||'').replace(/'/g,"\\'")}','${c.telefone||''}','${c.email||''}','${c.cnpj||''}','${c.cidade||''}','${c.estado||''}')">Editar</button></td>
     </tr>`;
   });
   html += '</tbody></table>';
   document.getElementById('cli-table-wrap').innerHTML = html;
 }
 
+function novoCliente(){
+  document.getElementById('nc-id').value = '';
+  document.getElementById('nc-title').textContent = 'Novo Cliente';
+  document.getElementById('nc-nome').value = '';
+  document.getElementById('nc-responsavel').value = '';
+  document.getElementById('nc-telefone').value = '';
+  document.getElementById('nc-email').value = '';
+  document.getElementById('nc-cnpj').value = '';
+  document.getElementById('nc-cidade').value = '';
+  document.getElementById('nc-estado').value = '';
+  document.getElementById('nc-btn-excluir').style.display = 'none';
+  openModal('m-novo-cliente');
+}
+
+function editarCliente(id,nome,responsavel,telefone,email,cnpj,cidade,estado){
+  document.getElementById('nc-id').value = id;
+  document.getElementById('nc-title').textContent = 'Editar Cliente';
+  document.getElementById('nc-nome').value = nome;
+  document.getElementById('nc-responsavel').value = responsavel;
+  document.getElementById('nc-telefone').value = telefone;
+  document.getElementById('nc-email').value = email;
+  document.getElementById('nc-cnpj').value = cnpj;
+  document.getElementById('nc-cidade').value = cidade;
+  document.getElementById('nc-estado').value = estado;
+  document.getElementById('nc-btn-excluir').style.display = 'flex';
+  openModal('m-novo-cliente');
+}
+
 async function salvarCliente(){
   const nome = document.getElementById('nc-nome').value.trim();
   if(!nome){toast('Nome é obrigatório',true);return;}
-  const {error} = await db.from('clientes').insert({
+  const dados = {
     nome,
-    cnpj: document.getElementById('nc-cnpj').value,
+    responsavel: document.getElementById('nc-responsavel').value,
+    telefone: document.getElementById('nc-telefone').value,
     email: document.getElementById('nc-email').value,
+    cnpj: document.getElementById('nc-cnpj').value,
     cidade: document.getElementById('nc-cidade').value,
     estado: document.getElementById('nc-estado').value
-  });
+  };
+  const id = document.getElementById('nc-id').value;
+  let error;
+  if(id){
+    ({error} = await db.from('clientes').update(dados).eq('id',id));
+  } else {
+    ({error} = await db.from('clientes').insert(dados));
+  }
   if(error){toast('Erro: '+error.message,true);return;}
-  cm('m-novo-cliente');toast('✓ Cliente salvo!');loadClientes();
+  cm('m-novo-cliente');
+  toast(id?'✓ Cliente atualizado!':'✓ Cliente salvo!');
+  loadClientes();
+  populateClientes();
+}
+
+async function excluirCliente(){
+  const id = document.getElementById('nc-id').value;
+  if(!id){return;}
+  const {data:peds} = await db.from('pedidos').select('id').eq('cliente_id',id);
+  if(peds&&peds.length>0){
+    toast('Não é possível excluir — cliente tem '+peds.length+' pedido(s) vinculado(s).',true);
+    return;
+  }
+  if(!confirm('Tem certeza que deseja excluir este cliente?')){return;}
+  const {error} = await db.from('clientes').delete().eq('id',id);
+  if(error){toast('Erro: '+error.message,true);return;}
+  cm('m-novo-cliente');toast('✓ Cliente excluído.');loadClientes();populateClientes();
 }
 
 // ─── MATERIAIS ───
